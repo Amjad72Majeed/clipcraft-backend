@@ -1,39 +1,26 @@
 from flask import Flask, render_template, request
-import replicate
+from predict import Predictor
 import os
 
 app = Flask(__name__)
-
-# Set the API token (make sure this token is valid)
-os.environ["REPLICATE_API_TOKEN"] = "r8_2tWRxCB6i8tAG66zPpEQgmtovzRWde30K67Eb"
-
-# Initialize replicate client
-replicate_client = replicate.Client(api_token=os.getenv("REPLICATE_API_TOKEN"))
+predictor = Predictor()
+predictor.setup()
 
 @app.route('/')
-def home():
+def index():
     return render_template("index.html")
 
 @app.route('/generate', methods=['POST'])
 def generate():
     prompt = request.form.get("text")
-    
     if not prompt:
-        return render_template("index.html", error="No prompt provided.")
+        return render_template("index.html", error="Please provide a prompt.")
     
-    print("Generating video for prompt:", prompt)
-
     try:
-        model_version = "amjad72majeed/video-generation"
-        output = replicate_client.run(
-            model_version,
-            input={"prompt": prompt}
-        )
-        return render_template("index.html", video_url=output)
-    
+        result_path = predictor.predict(prompt=prompt)
+        return render_template("index.html", image_url=result_path)
     except Exception as e:
-        print("Error:", str(e))
         return render_template("index.html", error=str(e))
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)
