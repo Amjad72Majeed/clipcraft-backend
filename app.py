@@ -1,26 +1,24 @@
-from flask import Flask, render_template, request
-from predict import Predictor
-import os
+from flask import Flask, render_template, request, jsonify
+from predict import predict_video
 
 app = Flask(__name__)
-predictor = Predictor()
-predictor.setup()
 
 @app.route('/')
 def index():
-    return render_template("index.html")
+    return render_template('index.html')
 
 @app.route('/generate', methods=['POST'])
 def generate():
-    prompt = request.form.get("text")
+    data = request.get_json()
+    prompt = data.get('prompt')
     if not prompt:
-        return render_template("index.html", error="Please provide a prompt.")
-    
+        return jsonify({'error': 'Prompt is required'}), 400
+
     try:
-        result_path = predictor.predict(prompt=prompt)
-        return render_template("index.html", image_url=result_path)
+        video_url = predict_video(prompt)
+        return jsonify({'video_url': video_url})
     except Exception as e:
-        return render_template("index.html", error=str(e))
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
