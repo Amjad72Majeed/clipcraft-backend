@@ -1,30 +1,33 @@
-import os
 import torch
-from cog import BasePredictor, Input, Path
-from diffusers import StableDiffusionPipeline
-import tempfile
+from diffusers import DiffusionPipeline
+from PIL import Image
+import moviepy.editor as mpy
+import os
+from datetime import datetime
 
-class Predictor(BasePredictor):
-    def setup(self):
-        """Load the model and necessary resources."""
-        self.pipe = StableDiffusionPipeline.from_pretrained(
-            "CompVis/stable-diffusion-v1-4", 
-            torch_dtype=torch.float16,
-            revision="fp16",
-            use_auth_token=os.getenv("HUGGINGFACE_TOKEN")
-        ).to("cuda")
+# Load model (load once, globally)
+pipe = DiffusionPipeline.from_pretrained(
+    "CompVis/stable-diffusion-v1-4",
+    torch_dtype=torch.float16,
+    revision="fp16"
+)
+pipe.to("cuda" if torch.cuda.is_available() else "cpu")
 
-    def predict(
-        self,
-        prompt: str = Input(description="Text prompt to generate video"),
-    ) -> Path:
-        """Run a single prediction."""
-        # Use the prompt to generate a static image first (for prototyping)
-        image = self.pipe(prompt).images[0]
+def predict_video(prompt: str) -> str:
+    # Create a unique filename using timestamp
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    output_dir = "static"
+    os.makedirs(output_dir, exist_ok=True)
+    video_path = os.path.join(output_dir, f"{timestamp}_output.mp4")
 
-        # Save the image temporarily
-        temp_path = tempfile.NamedTemporaryFile(suffix=".png", delete=False).name
-        image.save(temp_path)
+    # Generate 8 images from the prompt
+    images = []
+    for i in range(8):
+        image = pipe(prompt).images[0]
+        images.append(image)
 
-        # Placeholder: In full video generation, you'd return a video file
-        return Path(temp_path)
+    # Convert images to video using MoviePy
+    clip = mpy.ImageSequenceClip([img for img in images], fps=2)
+    clip.write_videofile(video_path, codec='libx264')
+
+    return video_path
